@@ -5,6 +5,7 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime
 import os
+import json
 
 # ============================================================
 # 1. НАСТРОЙКИ СТРАНИЦЫ
@@ -17,20 +18,34 @@ st.set_page_config(
 )
 
 # ============================================================
-# 2. ПОДКЛЮЧЕНИЕ К FIREBASE
+# 2. ПОДКЛЮЧЕНИЕ К FIREBASE (работает и локально, и в облаке)
 # ============================================================
-KEY_PATH = "serviceAccountKey.json"
-
 if not firebase_admin._apps:
-    if not os.path.exists(KEY_PATH):
-        st.error("❌ Файл serviceAccountKey.json не найден! Проверьте инструкцию.")
-        st.stop()
+    key_loaded = False
+    
+    # СПОСОБ 1: Для Streamlit Cloud — читаем ключ из Secrets
     try:
-        cred = credentials.Certificate(KEY_PATH)
+        key_dict = json.loads(st.secrets["firebase_key"])
+        cred = credentials.Certificate(key_dict)
         firebase_admin.initialize_app(cred)
-    except Exception as e:
-        st.error(f"❌ Ошибка инициализации Firebase: {e}")
-        st.stop()
+        key_loaded = True
+    except Exception:
+        pass
+    
+    # СПОСОБ 2: Для локального запуска — читаем из файла
+    if not key_loaded:
+        KEY_PATH = "serviceAccountKey.json"
+        if os.path.exists(KEY_PATH):
+            try:
+                cred = credentials.Certificate(KEY_PATH)
+                firebase_admin.initialize_app(cred)
+                key_loaded = True
+            except Exception as e:
+                st.error(f"❌ Ошибка инициализации Firebase: {e}")
+                st.stop()
+        else:
+            st.error("❌ Файл serviceAccountKey.json не найден! Проверьте инструкцию.")
+            st.stop()
 
 db = firestore.client()
 
